@@ -1,134 +1,64 @@
-import { put } from '@vercel/blob'
-import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { createReceipt } from '@/lib/receipts'
-import { getCardFirma } from '@/lib/card-mapping'
-import OpenAI from 'openai'
+import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
+import { createReceipt } from '@/lib/receipts';
+import { getCardFirma } from '@/lib/card-mapping';
+import OpenAI from 'openai';
+import { sql } from "@vercel/postgres";
+
+async function uploadToCloudinary(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+
+  const response = await fetch(
+         `https://api.cloudinary.com${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+
+      method: "POST", 
+      body: formData 
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || 'Cloudinary upload failed');
+  }
+
+  const data = await response.json();
+  return data.secure_url; 
+}
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-})
+});
 
-interface ExtractedData {
-  amount: number | null
-  storeName: string | null
-  date: string | null
-  receiptNumber: string | null
-}
-
-async function extractReceiptData(imageUrl: string): Promise<{ data: ExtractedData | null; error: string | null }> {
+export async function POST(req: Request) {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: {
-                url: imageUrl,
-              },
-            },
-            {
-              type: 'text',
-              text: `Analizeaza acest bon fiscal sau factura din Romania si extrage urmatoarele informatii in format JSON:
-{
-  "amount": <suma totala ca numar, fara RON/LEI, sau null daca nu gasesti>,
-  "storeName": "<numele magazinului/firmei sau null>",
-  "date": "<data in format DD.MM.YYYY sau null>",
-  "receiptNumber": "<numarul bonului/facturii sau null>"
-}
-
-Raspunde DOAR cu JSON-ul, fara alte explicatii.`,
-            },
-          ],
-        },
-      ],
-      max_tokens: 500,
-    })
-
-    const content = response.choices[0]?.message?.content
-    if (!content) {
-      return { data: null, error: 'No response from AI' }
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 });
     }
 
-    // Parse JSON from response
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      return { data: null, error: 'Could not parse AI response' }
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as ExtractedData
-    return { data: parsed, error: null }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown AI error'
-    console.error('[v0] AI extraction error:', errorMessage)
-    return { data: null, error: errorMessage }
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const user = await getSession()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
-    }
-
-    const formData = await request.formData()
-    const file = formData.get('file') as File
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
 
     if (!file) {
-      return NextResponse.json({ error: 'Fisierul lipseste' }, { status: 400 })
+      return NextResponse.json({ error: 'Niciun fișier încărcat' }, { status: 400 });
     }
 
-    // Check file size (max 4MB after compression)
-    if (file.size > 4 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Fisierul este prea mare. Maxim 4MB.' }, { status: 400 })
-    }
+    // 1. Încărcăm în Cloudinary (Gratis, ocolește limita Vercel Blob)
+    const imageUrl = await uploadToCloudinary(file);
 
-    // Upload image to Blob first
-    let blob
-    try {
-      blob = await put(`receipts/${user.id}/${Date.now()}-${file.name}`, file, {
-        access: 'public',
-      })
-    } catch (blobError) {
-      console.error('[v0] Blob upload error:', blobError)
-      return NextResponse.json({ error: 'Eroare la incarcarea imaginii' }, { status: 500 })
-    }
+    // 2. Salvăm URL-ul în Neon Postgres (Ultrafilterneon)
+    // Asigură-te că tabelul 'receipts' există în baza de date
+    await sql`
+      INSERT INTO receipts (url, name, created_at)
+      VALUES (${imageUrl}, ${file.name}, NOW())
+    `;
 
-    // Extract data from receipt using AI
-    const { data: extractedData, error: aiError } = await extractReceiptData(blob.url)
-
-    // Create receipt record with extracted data (or defaults if extraction failed)
-    let receipt
-    try {
-      receipt = await createReceipt({
-        userId: user.id,
-        userName: user.name,
-        amount: extractedData?.amount ?? 0,
-        storeName: extractedData?.storeName ?? 'Necunoscut',
-        date: extractedData?.date ?? new Date().toLocaleDateString('ro-RO'),
-        receiptNumber: extractedData?.receiptNumber ?? 'N/A',
-        imageUrl: blob.url,
-        cardFirma: getCardFirma(user.name),
-      })
-    } catch (receiptError) {
-      console.error('[v0] Receipt creation error:', receiptError)
-      return NextResponse.json({ error: 'Eroare la salvarea bonului' }, { status: 500 })
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      receipt,
-      aiExtracted: !!extractedData,
-      aiError: aiError
-    })
-  } catch (error) {
-    console.error('[v0] Upload error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Eroare necunoscuta'
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json({ url: imageUrl });
+  } catch (error: any) {
+    console.error('Eroare la upload:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
