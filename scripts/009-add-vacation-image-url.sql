@@ -1,0 +1,2 @@
+ALTER TABLE vacations ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE vacation_settings ADD COLUMN IF NOT EXISTS total_allocated INTEGER DEFAULT 21;
