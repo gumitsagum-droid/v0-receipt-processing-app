@@ -10,7 +10,6 @@ async function uploadToCloudinary(file: File) {
   formData.append("file", file);
   formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
 
-  // URL-ul de mai jos este acum corectat cu /v1_1/ și ${...}
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/{process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
     {
