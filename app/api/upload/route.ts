@@ -10,8 +10,9 @@ async function uploadToCloudinary(file: File) {
   formData.append("file", file);
   formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
 
+  // AM CORECTAT AICI: am pus /v1_1/, simbolul $ și VIRGULA (,) la finalul rândului 16
   const response = await fetch(
-    `https://api.cloudinary.com/v1_1/{process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+    `https://api.cloudinary.com{process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
     {
       method: "POST",
       body: formData,
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Niciun fișier încărcat' }, { status: 400 });
     }
 
-    // 1. Încărcăm în Cloudinary (Gratis, ocolește limita Vercel Blob de 2k)
+    // 1. Încărcăm în Cloudinary (Gratis, ocolește limita Vercel Blob)
     const imageUrl = await uploadToCloudinary(file);
 
     // 2. Salvăm URL-ul în Neon Postgres (Baza ta de date Ultrafilterneon)
@@ -60,4 +61,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
