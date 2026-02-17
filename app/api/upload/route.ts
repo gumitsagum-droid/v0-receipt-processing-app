@@ -12,7 +12,7 @@ async function uploadToCloudinary(file: File) {
 
   // URL-ul de mai jos este acum corectat cu /v1_1/ și ${...}
   const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+    `https://api.cloudinary.com/v1_1/{process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
     {
       method: "POST",
       body: formData,
