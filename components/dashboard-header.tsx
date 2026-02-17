@@ -57,6 +57,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
               width={40} 
               height={32}
               className="object-contain"
+              style={{ width: "auto", height: "auto" }}
             />
             <h1 className="text-xl font-bold text-primary">DecontUfr</h1>
           </Link>
