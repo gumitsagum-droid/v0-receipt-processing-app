@@ -3,13 +3,15 @@
 import React, { useRef, useState, useCallback } from "react"
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Upload, Users, Loader2, X } from 'lucide-react'
+import { Upload, Loader2, X, Plus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 // Compress image to reduce file size
 async function compressImage(file: File, maxSizeMB: number = 2): Promise<File> {
@@ -84,6 +86,15 @@ export function ActionButtons() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualLoading, setManualLoading] = useState(false)
+  const [manualError, setManualError] = useState<string | null>(null)
+  const [manualData, setManualData] = useState({
+    amount: '',
+    storeName: '',
+    date: '',
+    receiptNumber: '',
+  })
   const router = useRouter()
 
   const handleUploadClick = () => {
@@ -175,6 +186,33 @@ export function ActionButtons() {
     }
   }
 
+  const handleManualSubmit = async () => {
+    if (!manualData.amount || !manualData.storeName || !manualData.date) {
+      setManualError('Suma, magazinul si data sunt obligatorii')
+      return
+    }
+    setManualLoading(true)
+    setManualError(null)
+    try {
+      const response = await fetch('/api/receipts/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(manualData),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Eroare la salvare')
+      }
+      setManualOpen(false)
+      setManualData({ amount: '', storeName: '', date: '', receiptNumber: '' })
+      router.refresh()
+    } catch (err) {
+      setManualError(err instanceof Error ? err.message : 'Eroare la salvare')
+    } finally {
+      setManualLoading(false)
+    }
+  }
+
   const scrollToTable = () => {
     const tableSection = document.getElementById('receipts-table')
     if (tableSection) {
@@ -192,6 +230,15 @@ export function ActionButtons() {
         >
           <Upload className="w-5 h-5" />
           Incarca poza
+        </Button>
+        <Button 
+          size="lg" 
+          variant="outline"
+          onClick={() => setManualOpen(true)}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          Adauga manual
         </Button>
         <input
           ref={fileInputRef}
@@ -243,6 +290,71 @@ export function ActionButtons() {
             </Button>
             {error && (
               <p className="text-sm text-destructive">{error}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adauga bon manual</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="storeName">Magazin / Furnizor *</Label>
+              <Input
+                id="storeName"
+                placeholder="Ex: HORNBACH"
+                value={manualData.storeName}
+                onChange={(e) => setManualData(prev => ({ ...prev, storeName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="amount">Suma (RON) *</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                placeholder="Ex: 150.50"
+                value={manualData.amount}
+                onChange={(e) => setManualData(prev => ({ ...prev, amount: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date">Data (DD.MM.YYYY) *</Label>
+              <Input
+                id="date"
+                placeholder="Ex: 16.02.2026"
+                value={manualData.date}
+                onChange={(e) => setManualData(prev => ({ ...prev, date: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="receiptNumber">Nr. Bon (optional)</Label>
+              <Input
+                id="receiptNumber"
+                placeholder="Ex: 12345678"
+                value={manualData.receiptNumber}
+                onChange={(e) => setManualData(prev => ({ ...prev, receiptNumber: e.target.value }))}
+              />
+            </div>
+            <Button
+              onClick={handleManualSubmit}
+              disabled={manualLoading}
+              className="w-full"
+            >
+              {manualLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Se salveaza...
+                </>
+              ) : (
+                'Salveaza bon'
+              )}
+            </Button>
+            {manualError && (
+              <p className="text-sm text-destructive">{manualError}</p>
             )}
           </div>
         </DialogContent>

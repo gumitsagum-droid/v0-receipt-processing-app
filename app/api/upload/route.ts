@@ -95,8 +95,9 @@ export async function POST(request: Request) {
         access: 'public',
       })
     } catch (blobError) {
-      console.error('[v0] Blob upload error:', blobError)
-      return NextResponse.json({ error: 'Eroare la incarcarea imaginii' }, { status: 500 })
+      const blobErrMsg = blobError instanceof Error ? blobError.message : String(blobError)
+      console.error('[v0] Blob upload error:', blobErrMsg)
+      return NextResponse.json({ error: `Eroare la incarcarea imaginii: ${blobErrMsg}` }, { status: 500 })
     }
 
     // Extract data from receipt using AI
