@@ -43,7 +43,9 @@
     "ai": "6.0.67",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "3.0.3",
+    "bufferutil": "latest",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "2.9.0",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
@@ -63,6 +65,7 @@
     "swr": "2.4.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
+    "utf-8-validate": "latest",
     "vaul": "^1.1.2",
     "ws": "latest",
     "zod": "3.25.76"

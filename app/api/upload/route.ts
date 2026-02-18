@@ -1,9 +1,15 @@
-import { put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createReceipt } from '@/lib/receipts'
 import { getCardFirma } from '@/lib/card-mapping'
 import OpenAI from 'openai'
+import { v2 as cloudinary } from 'cloudinary'
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+})
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -88,19 +94,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Fisierul este prea mare. Maxim 4MB.' }, { status: 400 })
     }
 
-    // Upload image to Blob first
-    let blob
+    // Upload image to Cloudinary
+    let imageUrl: string
     try {
-      blob = await put(`receipts/${user.id}/${Date.now()}-${file.name}`, file, {
-        access: 'public',
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      const base64 = `data:${file.type};base64,${buffer.toString('base64')}`
+      
+      const uploadResult = await cloudinary.uploader.upload(base64, {
+        folder: `receipts/${user.id}`,
+        resource_type: 'image',
       })
-    } catch (blobError) {
-      console.error('[v0] Blob upload error:', blobError)
-      return NextResponse.json({ error: 'Eroare la incarcarea imaginii' }, { status: 500 })
+      imageUrl = uploadResult.secure_url
+    } catch (uploadError) {
+      const errMsg = uploadError instanceof Error ? uploadError.message : String(uploadError)
+      console.error('[v0] Cloudinary upload error:', errMsg)
+      return NextResponse.json({ error: `Eroare la incarcarea imaginii: ${errMsg}` }, { status: 500 })
     }
 
     // Extract data from receipt using AI
-    const { data: extractedData, error: aiError } = await extractReceiptData(blob.url)
+    const { data: extractedData, error: aiError } = await extractReceiptData(imageUrl)
 
     // Create receipt record with extracted data (or defaults if extraction failed)
     let receipt
@@ -112,7 +125,7 @@ export async function POST(request: Request) {
         storeName: extractedData?.storeName ?? 'Necunoscut',
         date: extractedData?.date ?? new Date().toLocaleDateString('ro-RO'),
         receiptNumber: extractedData?.receiptNumber ?? 'N/A',
-        imageUrl: blob.url,
+        imageUrl: imageUrl,
         cardFirma: getCardFirma(user.name),
       })
     } catch (receiptError) {
