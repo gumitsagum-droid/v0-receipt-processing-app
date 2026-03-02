@@ -12,13 +12,18 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { type, days: daysStr, startDate, endDate } = body
+    const { type, days: daysStr, startDate, endDate, forUserId, forUserName } = body
 
     const days = parseInt(daysStr, 10)
 
     if (!type || !days || !startDate) {
       return NextResponse.json({ error: 'Date incomplete' }, { status: 400 })
     }
+
+    // Admin can add vacation for another user
+    const isAdmin = user.role === 'admin' || user.accessLevel >= 2
+    const targetUserId = (isAdmin && forUserId) ? forUserId : user.id
+    const targetUserName = (isAdmin && forUserName) ? forUserName : user.name
 
     // Parse month and year from startDate (format: YYYY-MM-DD)
     const dateParts = startDate.split('-')
@@ -28,8 +33,8 @@ export async function POST(request: Request) {
     // Create vacation record
     const vacation: Vacation = {
       id: `vac_${Date.now()}`,
-      userId: user.id,
-      userName: user.name,
+      userId: targetUserId,
+      userName: targetUserName,
       type,
       days,
       startDate,

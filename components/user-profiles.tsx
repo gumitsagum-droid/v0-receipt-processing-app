@@ -20,9 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Calendar, Receipt as ReceiptIcon, Pencil, Check, X, Shield, ArrowLeft, Download, Eye, User as UserIcon, Trash2, ImageIcon } from 'lucide-react'
+import { Calendar, Receipt as ReceiptIcon, Pencil, Check, X, Shield, ArrowLeft, Download, Eye, User as UserIcon, Trash2, ImageIcon, Plus, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ReceiptsTable } from '@/components/receipts-table'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface UserProfilesProps {
   users: User[]
@@ -53,6 +60,15 @@ export function UserProfiles({ users, vacations, receipts, vacationStats, curren
   const [editValue, setEditValue] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [deletingVacation, setDeletingVacation] = useState<string | null>(null)
+  const [addVacationOpen, setAddVacationOpen] = useState(false)
+  const [addVacationLoading, setAddVacationLoading] = useState(false)
+  const [addVacationError, setAddVacationError] = useState<string | null>(null)
+  const [vacationFormData, setVacationFormData] = useState({
+    type: '' as 'legal' | 'medical' | 'fara_plata' | 'special' | '',
+    days: '',
+    startDate: '',
+    endDate: '',
+  })
   const [savingAccessLevel, setSavingAccessLevel] = useState<string | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [downloadingMultiPdf, setDownloadingMultiPdf] = useState(false)
@@ -135,6 +151,41 @@ export function UserProfiles({ users, vacations, receipts, vacationStats, curren
       console.error('Error deleting vacation:', error)
     } finally {
       setDeletingVacation(null)
+    }
+  }
+
+  const handleAddVacationForUser = async () => {
+    if (!selectedUser) return
+    if (!vacationFormData.type || !vacationFormData.days || !vacationFormData.startDate) {
+      setAddVacationError('Tipul, zilele si data de inceput sunt obligatorii')
+      return
+    }
+    setAddVacationLoading(true)
+    setAddVacationError(null)
+    try {
+      const response = await fetch('/api/vacation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: vacationFormData.type,
+          days: vacationFormData.days,
+          startDate: vacationFormData.startDate,
+          endDate: vacationFormData.endDate || vacationFormData.startDate,
+          forUserId: selectedUser.id,
+          forUserName: selectedUser.name,
+        })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Eroare la salvare')
+      }
+      setAddVacationOpen(false)
+      setVacationFormData({ type: '', days: '', startDate: '', endDate: '' })
+      router.refresh()
+    } catch (err) {
+      setAddVacationError(err instanceof Error ? err.message : 'Eroare la salvare')
+    } finally {
+      setAddVacationLoading(false)
     }
   }
 
@@ -627,9 +678,15 @@ export function UserProfiles({ users, vacations, receipts, vacationStats, curren
             Inapoi la lista
           </Button>
           
-          <div>
-            <h3 className="text-xl font-bold text-foreground">{selectedUser.name}</h3>
-            <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">{selectedUser.name}</h3>
+              <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+            </div>
+            <Button onClick={() => setAddVacationOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Adauga Concediu pentru {selectedUser.name}
+            </Button>
           </div>
           
           {/* Vacation Summary */}
@@ -774,7 +831,6 @@ export function UserProfiles({ users, vacations, receipts, vacationStats, curren
                         <TableHead className="font-semibold">Zile</TableHead>
                         <TableHead className="font-semibold">Data Inceput</TableHead>
                         <TableHead className="font-semibold">Data Sfarsit</TableHead>
-                        <TableHead className="font-semibold">Document</TableHead>
                         {isBoss && <TableHead className="font-semibold">Actiuni</TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -789,21 +845,6 @@ export function UserProfiles({ users, vacations, receipts, vacationStats, curren
                           <TableCell className="font-semibold">{vacation.days}</TableCell>
                           <TableCell>{vacation.startDate}</TableCell>
                           <TableCell>{vacation.endDate}</TableCell>
-                          <TableCell>
-                            {vacation.imageUrl ? (
-                              <a
-                                href={vacation.imageUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
-                              >
-                                <ImageIcon className="w-4 h-4" />
-                                Vizualizeaza
-                              </a>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
-                            )}
-                          </TableCell>
                           {isBoss && (
                             <TableCell>
                               <Button
@@ -825,6 +866,91 @@ export function UserProfiles({ users, vacations, receipts, vacationStats, curren
               )}
             </CardContent>
           </Card>
+
+          {/* Dialog Adauga Concediu pentru user */}
+          <Dialog open={addVacationOpen} onOpenChange={(open) => {
+            setAddVacationOpen(open)
+            if (!open) {
+              setVacationFormData({ type: '', days: '', startDate: '', endDate: '' })
+              setAddVacationError(null)
+            }
+          }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Adauga Concediu pentru {selectedUser.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Tip Concediu *</Label>
+                  <Select 
+                    value={vacationFormData.type} 
+                    onValueChange={(value: 'legal' | 'medical' | 'fara_plata' | 'special') => 
+                      setVacationFormData(prev => ({ ...prev, type: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecteaza tipul" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="legal">Concediu Odihna CO</SelectItem>
+                      <SelectItem value="medical">Concediu Medical</SelectItem>
+                      <SelectItem value="fara_plata">Concediu Fara Plata</SelectItem>
+                      <SelectItem value="special">Concediu Special</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Numar Zile *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={vacationFormData.days}
+                    onChange={(e) => setVacationFormData(prev => ({ ...prev, days: e.target.value }))}
+                    placeholder="Ex: 5"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data Inceput *</Label>
+                    <Input
+                      type="date"
+                      value={vacationFormData.startDate}
+                      onChange={(e) => setVacationFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data Sfarsit</Label>
+                    <Input
+                      type="date"
+                      value={vacationFormData.endDate}
+                      onChange={(e) => setVacationFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {addVacationError && (
+                  <p className="text-sm text-destructive">{addVacationError}</p>
+                )}
+
+                <Button 
+                  onClick={handleAddVacationForUser} 
+                  disabled={addVacationLoading}
+                  className="w-full"
+                >
+                  {addVacationLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Se salveaza...
+                    </>
+                  ) : (
+                    'Salveaza Concediu'
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       )
     }
