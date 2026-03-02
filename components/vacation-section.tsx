@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Vacation } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Upload, Loader2, Calendar, Eye, Pencil } from 'lucide-react'
+import { Upload, Loader2, Calendar, Pencil } from 'lucide-react'
 
 interface VacationSectionProps {
   vacations: Vacation[]
@@ -50,11 +50,9 @@ interface VacationSectionProps {
 
 export function VacationSection({ vacations, vacationStats, isAdmin, currentUserName }: VacationSectionProps) {
   const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [anAnteriorValue, setAnAnteriorValue] = useState('')
   const [savingAnAnterior, setSavingAnAnterior] = useState(false)
@@ -64,22 +62,7 @@ export function VacationSection({ vacations, vacationStats, isAdmin, currentUser
     days: '',
     startDate: '',
     endDate: '',
-    file: null as File | null,
-    preview: null as string | null
   })
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setFormData(prev => ({ ...prev, file }))
-    
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setFormData(prev => ({ ...prev, preview: e.target?.result as string }))
-    }
-    reader.readAsDataURL(file)
-  }
 
   const resetForm = () => {
     setFormData({
@@ -87,13 +70,8 @@ export function VacationSection({ vacations, vacationStats, isAdmin, currentUser
       days: '',
       startDate: '',
       endDate: '',
-      file: null,
-      preview: null
     })
     setError(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
   }
 
   const handleDialogChange = (open: boolean) => {
@@ -104,7 +82,7 @@ export function VacationSection({ vacations, vacationStats, isAdmin, currentUser
   }
 
   const handleSubmit = async () => {
-    if (!formData.file || !formData.type || !formData.days || !formData.startDate) {
+    if (!formData.type || !formData.days || !formData.startDate) {
       setError('Te rog completeaza toate campurile obligatorii')
       return
     }
@@ -113,16 +91,15 @@ export function VacationSection({ vacations, vacationStats, isAdmin, currentUser
     setError(null)
 
     try {
-      const data = new FormData()
-      data.append('file', formData.file)
-      data.append('type', formData.type)
-      data.append('days', formData.days)
-      data.append('startDate', formData.startDate)
-      data.append('endDate', formData.endDate || formData.startDate)
-
       const response = await fetch('/api/vacation', {
         method: 'POST',
-        body: data
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: formData.type,
+          days: formData.days,
+          startDate: formData.startDate,
+          endDate: formData.endDate || formData.startDate,
+        })
       })
 
       if (!response.ok) {
@@ -283,34 +260,6 @@ export function VacationSection({ vacations, vacationStats, isAdmin, currentUser
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Poza Document *</Label>
-                <div 
-                  className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {formData.preview ? (
-                    <img 
-                      src={formData.preview || "/placeholder.svg"} 
-                      alt="Preview" 
-                      className="max-h-32 mx-auto rounded"
-                    />
-                  ) : (
-                    <div className="text-muted-foreground">
-                      <Upload className="w-8 h-8 mx-auto mb-2" />
-                      <p>Click pentru a selecta poza</p>
-                    </div>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-              </div>
-
               {error && (
                 <p className="text-sm text-destructive">{error}</p>
               )}
@@ -434,7 +383,6 @@ export function VacationSection({ vacations, vacationStats, isAdmin, currentUser
                   <TableHead className="font-semibold">Zile</TableHead>
                   <TableHead className="font-semibold">Data Inceput</TableHead>
                   <TableHead className="font-semibold">Data Sfarsit</TableHead>
-                  <TableHead className="font-semibold text-center">Document</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -449,27 +397,6 @@ export function VacationSection({ vacations, vacationStats, isAdmin, currentUser
                     <TableCell className="font-semibold">{vacation.days}</TableCell>
                     <TableCell>{vacation.startDate}</TableCell>
                     <TableCell>{vacation.endDate}</TableCell>
-                    <TableCell className="text-center">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-3xl">
-                          <DialogHeader>
-                            <DialogTitle>
-                              Document Concediu - {getTypeLabel(vacation.type)}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <img
-                            src={vacation.imageUrl || "/placeholder.svg"}
-                            alt="Document concediu"
-                            className="w-full max-h-[70vh] object-contain rounded-lg"
-                          />
-                        </DialogContent>
-                      </Dialog>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

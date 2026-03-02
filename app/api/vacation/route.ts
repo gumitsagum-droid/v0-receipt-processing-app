@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { put } from '@vercel/blob'
 import { getSession } from '@/lib/auth'
 import { saveVacation, getVacations, deleteVacation } from '@/lib/vacations'
 import type { Vacation } from '@/lib/types'
@@ -12,22 +11,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
     }
 
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const type = formData.get('type') as 'legal' | 'medical' | 'fara_plata'
-    const days = parseInt(formData.get('days') as string, 10)
-    const startDate = formData.get('startDate') as string
-    const endDate = formData.get('endDate') as string
+    const body = await request.json()
+    const { type, days: daysStr, startDate, endDate } = body
 
-    if (!file || !type || !days || !startDate) {
+    const days = parseInt(daysStr, 10)
+
+    if (!type || !days || !startDate) {
       return NextResponse.json({ error: 'Date incomplete' }, { status: 400 })
     }
-
-    // Upload image to blob
-    const blob = await put(`vacations/${user.id}/${Date.now()}-${file.name}`, file, {
-      access: 'public',
-      contentType: file.type,
-    })
 
     // Parse month and year from startDate (format: YYYY-MM-DD)
     const dateParts = startDate.split('-')
@@ -43,7 +34,7 @@ export async function POST(request: Request) {
       days,
       startDate,
       endDate: endDate || startDate,
-      imageUrl: blob.url,
+      imageUrl: '',
       createdAt: new Date().toISOString(),
       month,
       year
@@ -53,8 +44,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, vacation })
   } catch (error) {
-    console.error('[v0] Vacation upload error:', error)
-    return NextResponse.json({ error: 'Eroare la incarcare' }, { status: 500 })
+    console.error('[v0] Vacation save error:', error)
+    return NextResponse.json({ error: 'Eroare la salvare' }, { status: 500 })
   }
 }
 
