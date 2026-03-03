@@ -26,11 +26,10 @@ export function CleanupImagesButton() {
       const response = await fetch('/api/cron/cleanup-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days: 30 }),
       })
       const data = await response.json()
       if (response.ok) {
-        setResult(`${data.cleared} bonuri procesate, ${data.deletedImages} poze sterse din Cloudinary`)
+        setResult(data.message || `${data.cleared} bonuri procesate, ${data.deletedImages} poze sterse`)
       } else {
         setResult(`Eroare: ${data.error}`)
       }
@@ -47,16 +46,16 @@ export function CleanupImagesButton() {
         <AlertDialogTrigger asChild>
           <Button variant="outline" className="gap-2 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
             <Trash2 className="w-4 h-4" />
-            Sterge poze vechi (30+ zile)
+            Sterge pozele din lunile anterioare
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sterge pozele mai vechi de 30 zile?</AlertDialogTitle>
+            <AlertDialogTitle>Sterge pozele din lunile anterioare?</AlertDialogTitle>
             <AlertDialogDescription>
-              Aceasta actiune va sterge pozele bonurilor din Cloudinary care sunt mai vechi de 30 de zile. 
-              <strong className="block mt-2">Datele bonurilor (magazin, suma, data, nr bon) raman in baza de date</strong> si pot fi descarcate in continuare ca decont.
-              Doar fisierele imagine se sterg pentru a economisi spatiu de stocare.
+              Aceasta actiune va sterge pozele bonurilor din lunile trecute. Pozele din luna curenta raman vizibile.
+              <strong className="block mt-2">Datele bonurilor (magazin, suma, data, nr bon) raman in baza de date</strong> si decontul poate fi descarcat in continuare.
+              Doar imaginile se sterg pentru a economisi spatiu de stocare.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

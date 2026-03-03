@@ -148,7 +148,7 @@ export default async function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Sterge pozele bonurilor mai vechi de 30 de zile din Cloudinary. Datele bonurilor (magazin, suma, data) raman in baza de date si decontul poate fi descarcat in continuare.
+                    Sterge pozele bonurilor din lunile anterioare din Cloudinary. Pozele din luna curenta raman vizibile. Datele bonurilor (magazin, suma, data) raman in baza de date si decontul poate fi descarcat oricand.
                   </p>
                   <CleanupImagesButton />
                 </CardContent>

@@ -500,61 +500,67 @@ export function ReceiptsTable({
                         <Pencil className="w-4 h-4" />
                       </Button>
                     ) : null}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => setSelectedImage(receipt.imageUrl)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-3xl">
-                        <DialogHeader>
-                          <DialogTitle className="text-foreground">
-                            Bon - {receipt.storeName} - {receipt.date}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="mt-4">
-                          <img
-                            src={receipt.imageUrl || "/placeholder.svg"}
-                            alt="Bon fiscal"
-                            className="w-full max-h-[70vh] object-contain rounded-lg"
-                          />
-                        </div>
-                        {canDownload && (
-                          <div className="mt-4 flex justify-end">
-                            <Button asChild>
-                              <a 
-                                href={receipt.imageUrl} 
-                                download={`bon-${receipt.storeName}-${receipt.date}.jpg`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <Download className="w-4 h-4 mr-2" />
-                                Descarca
-                              </a>
+                    {receipt.imageUrl ? (
+                      <>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => setSelectedImage(receipt.imageUrl)}
+                            >
+                              <Eye className="w-4 h-4" />
                             </Button>
-                          </div>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-3xl">
+                            <DialogHeader>
+                              <DialogTitle className="text-foreground">
+                                Bon - {receipt.storeName} - {receipt.date}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <div className="mt-4">
+                              <img
+                                src={receipt.imageUrl}
+                                alt="Bon fiscal"
+                                className="w-full max-h-[70vh] object-contain rounded-lg"
+                              />
+                            </div>
+                            {canDownload && (
+                              <div className="mt-4 flex justify-end">
+                                <Button asChild>
+                                  <a 
+                                    href={receipt.imageUrl} 
+                                    download={`bon-${receipt.storeName}-${receipt.date}.jpg`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Descarca
+                                  </a>
+                                </Button>
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                        {canDownload && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            asChild
+                          >
+                            <a 
+                              href={receipt.imageUrl} 
+                              download={`bon-${receipt.storeName}-${receipt.date}.jpg`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </Button>
                         )}
-                      </DialogContent>
-                    </Dialog>
-                    {canDownload && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        asChild
-                      >
-                        <a 
-                          href={receipt.imageUrl} 
-                          download={`bon-${receipt.storeName}-${receipt.date}.jpg`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Download className="w-4 h-4" />
-                        </a>
-                      </Button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">Expirat</span>
                     )}
                   </div>
                 </TableCell>
