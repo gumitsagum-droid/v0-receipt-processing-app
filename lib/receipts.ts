@@ -86,19 +86,22 @@ export async function deleteReceipt(receiptId: string, imageUrl?: string): Promi
 }
 
 // Clear image URLs from receipts older than given days (keeps data, deletes images)
-export async function clearOldReceiptImages(olderThanDays: number = 30): Promise<{ cleared: number; errors: string[] }> {
+// Also handles old Vercel Blob URLs that need cleanup
+export async function clearOldReceiptImages(olderThanDays: number = 30): Promise<{ cleared: number; deletedImages: number; errors: string[] }> {
   const errors: string[] = []
   
   // Find receipts with images older than X days
   const receipts = await sql`
     SELECT id, image_urls 
     FROM receipts 
-    WHERE created_at < NOW() - INTERVAL '${olderThanDays} days'
+    WHERE created_at < NOW() - make_interval(days => ${olderThanDays})
     AND image_urls IS NOT NULL 
     AND array_length(image_urls, 1) > 0
+    AND image_urls != '{}'
   `
   
   let cleared = 0
+  let deletedImages = 0
   
   for (const row of receipts) {
     const imageUrls = row.image_urls as string[]
@@ -115,12 +118,18 @@ export async function clearOldReceiptImages(olderThanDays: number = 30): Promise
           })
           const parts = url.split('/upload/')
           if (parts[1]) {
-            const publicId = parts[1].replace(/\.[^/.]+$/, '')
+            const afterUpload = parts[1]
+            const publicId = afterUpload.replace(/^v\d+\//, '').replace(/\.[^/.]+$/, '')
             await cloudinary.uploader.destroy(publicId)
+            deletedImages++
           }
         } catch (err) {
           errors.push(`Failed to delete image for receipt ${row.id}: ${err}`)
         }
+      }
+      // Old Blob URLs - just clear from DB (can't delete from suspended Blob)
+      if (url && url.includes('blob.vercel-storage')) {
+        deletedImages++
       }
     }
     
@@ -129,7 +138,7 @@ export async function clearOldReceiptImages(olderThanDays: number = 30): Promise
     cleared++
   }
   
-  return { cleared, errors }
+  return { cleared, deletedImages, errors }
 }
 
 export async function updateReceipt(
