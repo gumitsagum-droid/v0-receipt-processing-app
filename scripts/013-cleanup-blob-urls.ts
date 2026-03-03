@@ -4,7 +4,7 @@
 
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const sql = neon(process.env.DATABASE_URL || '')
 
 async function cleanupBlobUrls() {
   console.log('=== Curatare URL-uri Vercel Blob din baza de date ===\n')
