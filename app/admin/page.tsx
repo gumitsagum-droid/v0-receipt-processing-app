@@ -8,7 +8,6 @@ import { UsersTable } from '@/components/users-table'
 import { UserProfiles } from '@/components/user-profiles'
 import { AdminColorsTable } from '@/components/admin-colors-table'
 import { DecontReport } from '@/components/decont-report'
-import { CleanupImagesButton } from '@/components/cleanup-images-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -141,19 +140,6 @@ export default async function AdminPage() {
           
           <TabsContent value="users">
             <div className="space-y-6">
-              {/* Curatare poze vechi */}
-              <Card className="border-border">
-                <CardHeader>
-                  <CardTitle className="text-foreground">Mentenanta Stocare</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Sterge pozele bonurilor din lunile anterioare din Cloudinary. Pozele din luna curenta raman vizibile. Datele bonurilor (magazin, suma, data) raman in baza de date si decontul poate fi descarcat oricand.
-                  </p>
-                  <CleanupImagesButton />
-                </CardContent>
-              </Card>
-
               {/* Tabel culori admini */}
               <Card className="border-border">
                 <CardContent className="pt-6">
