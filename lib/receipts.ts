@@ -62,17 +62,74 @@ export async function deleteReceipt(receiptId: string, imageUrl?: string): Promi
   
   if (result.length === 0) return false
   
-  // Try to delete image from Blob if URL provided
-  if (imageUrl) {
+  // Try to delete image from Cloudinary if URL provided
+  if (imageUrl && imageUrl.includes('cloudinary')) {
     try {
-      const { del } = await import('@vercel/blob')
-      await del(imageUrl)
+      const { v2: cloudinary } = await import('cloudinary')
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      })
+      // Extract public_id from Cloudinary URL
+      const parts = imageUrl.split('/upload/')
+      if (parts[1]) {
+        const publicId = parts[1].replace(/\.[^/.]+$/, '') // remove extension
+        await cloudinary.uploader.destroy(publicId)
+      }
     } catch {
-      // Image might not exist or blob might be blocked
+      // Image might not exist
     }
   }
   
   return true
+}
+
+// Clear image URLs from receipts older than given days (keeps data, deletes images)
+export async function clearOldReceiptImages(olderThanDays: number = 30): Promise<{ cleared: number; errors: string[] }> {
+  const errors: string[] = []
+  
+  // Find receipts with images older than X days
+  const receipts = await sql`
+    SELECT id, image_urls 
+    FROM receipts 
+    WHERE created_at < NOW() - INTERVAL '${olderThanDays} days'
+    AND image_urls IS NOT NULL 
+    AND array_length(image_urls, 1) > 0
+  `
+  
+  let cleared = 0
+  
+  for (const row of receipts) {
+    const imageUrls = row.image_urls as string[]
+    
+    // Delete each image from Cloudinary
+    for (const url of imageUrls) {
+      if (url && url.includes('cloudinary')) {
+        try {
+          const { v2: cloudinary } = await import('cloudinary')
+          cloudinary.config({
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET,
+          })
+          const parts = url.split('/upload/')
+          if (parts[1]) {
+            const publicId = parts[1].replace(/\.[^/.]+$/, '')
+            await cloudinary.uploader.destroy(publicId)
+          }
+        } catch (err) {
+          errors.push(`Failed to delete image for receipt ${row.id}: ${err}`)
+        }
+      }
+    }
+    
+    // Clear image_urls in DB (keep all other data)
+    await sql`UPDATE receipts SET image_urls = '{}' WHERE id = ${row.id as string}`
+    cleared++
+  }
+  
+  return { cleared, errors }
 }
 
 export async function updateReceipt(
